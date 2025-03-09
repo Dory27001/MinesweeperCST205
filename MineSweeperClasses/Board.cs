@@ -1,150 +1,110 @@
 ﻿namespace MineSweeperClasses
 {
-    public class Board
-    {
-        public int Size { get; set; }
-        public float Difficulty { get; set; }
-        public Cell[,] Cells { get; set; }
-        public int RewardsRemaining { get; set; }
-        public DateTime StartTime { get; set; }
-        public DateTime EndTime { get; set; }
 
-        public enum GameStatus { InProgress, Won, Lost }
-
-        private Random random = new Random();
-
-        public Board(int size, float difficulty)
+        public class Board
         {
-            Size = size;
-            Difficulty = difficulty;
-            Cells = new Cell[size, size];
+            // The size of the board (square)
+            public int Size { get; private set; }
 
+            // The 2D array of cells that make up the board
+            public Cell[,] Cells { get; private set; }
 
-            for (int i = 0; i < Size; i++)
+            // The possible game statuses
+            public enum GameStatus { Playing, Won, Lost }
+
+            // Constructor that initializes the board
+            public Board(int size, float bombProbability)
             {
-                for (int j = 0; j < Size; j++)
+                // Set the board size
+                Size = size;
+
+                // Create the 2D array of cells
+                Cells = new Cell[size, size];
+
+                // Create a random number generator
+                Random rand = new Random();
+
+                // Populate the board with cells and randomly place bombs
+                for (int i = 0; i < size; i++)
                 {
-                    Cells[i, j] = new Cell();  // Ensure every cell is instantiated
+                    for (int j = 0; j < size; j++)
+                    {
+                        // Create a new cell and add it to the board
+                        Cells[i, j] = new Cell(i, j);
+
+                        // Randomly set the cell as a bomb based on the provided probability
+                        if (rand.NextDouble() < bombProbability)
+                            Cells[i, j].IsBomb = true;
+                    }
+                }
+
+                // Calculate the number of neighboring bombs for each cell
+                CalculateNeighborBombs();
+            }
+
+            // Private method to calculate the number of neighboring bombs for each cell
+            private void CalculateNeighborBombs()
+            {
+                // Iterate through each cell on the board
+                for (int i = 0; i < Size; i++)
+                {
+                    for (int j = 0; j < Size; j++)
+                    {
+                        // Skip cells that are bombs
+                        if (!Cells[i, j].IsBomb)
+                        {
+                            int count = 0;
+
+                            // Check the 8 neighboring cells for bombs
+                            for (int x = -1; x <= 1; x++)
+                            {
+                                for (int y = -1; y <= 1; y++)
+                                {
+                                    int ni = i + x, nj = j + y;
+
+                                    // Ensure the neighboring cell is within the board bounds
+                                    if (ni >= 0 && ni < Size && nj >= 0 && nj < Size && Cells[ni, nj].IsBomb)
+                                        count++;
+                                }
+                            }
+
+                            // Set the number of neighboring bombs for the current cell
+                            Cells[i, j].NumberOfBombNeighbors = count;
+                        }
+                    }
                 }
             }
 
-            RewardsRemaining = 0;
-            InitializeBoard();
-        }
-
-        private void InitializeBoard()
-        {
-            SetupBombs();
-            SetupRewards();
-            CalculateNumberOfBombNeighbors();
-            StartTime = DateTime.Now;
-        }
-
-        // Used when player selects a cell and chooses to play the reward
-        public void UseSpecialBonus() { }
-
-        // Used after game is over to calculate final score
-        public int DetermineFinalScore() { return 0; }
-
-        // Helper function to determine if a cell is out of bounds
-        private bool IsCellOnBoard(int row, int col)
-        {
-            return row >= 0 && row < Size && col >= 0 && col < Size;
-        }
-
-        // Used during setup to calculate the number of bomb neighbors for each cell
-        private void CalculateNumberOfBombNeighbors()
-        {
-            for (int i = 0; i < Size; i++)
+            // Method to reveal all non-bomb cells around the specified cell
+            public void UseSpecialBonus(int row, int col)
             {
-                for (int j = 0; j < Size; j++)
+                // Iterate through the 8 neighboring cells
+                for (int x = -1; x <= 1; x++)
                 {
-                    Cells[i, j].NumberOfBombNeighbors = GetNumberOfBombNeighbors(i, j);
-                }
-            }
-        }
+                    for (int y = -1; y <= 1; y++)
+                    {
+                        int ni = row + x, nj = col + y;
 
-        // Helper function to determine the number of bomb neighbors for a cell
-        private int GetNumberOfBombNeighbors(int i, int j)
-        {
-            int count = 0;
-            int[] dx = { -1, -1, -1, 0, 0, 1, 1, 1 };
-            int[] dy = { -1, 0, 1, -1, 1, -1, 0, 1 };
-
-            for (int d = 0; d < 8; d++)
-            {
-                int ni = i + dx[d];
-                int nj = j + dy[d];
-
-                if (IsCellOnBoard(ni, nj) && Cells[ni, nj].IsBomb)
-                {
-                    count++;
-                }
-            }
-            return count;
-        }
-
-        // Used during setup to place bombs on the board
-        private void SetupBombs()
-        {
-            int totalBombs = (int)(Size * Size * Difficulty);
-            int placedBombs = 0;
-
-            while (placedBombs < totalBombs)
-            {
-                int row = random.Next(Size);
-                int col = random.Next(Size);
-
-                if (!Cells[row, col].IsBomb)
-                {
-                    Cells[row, col].IsBomb = true;
-                    placedBombs++;
-                }
-            }
-        }
-
-        // Used during setup to place rewards on the board
-        private void SetupRewards()
-        {
-            int totalRewards = (int)(Size * Size * 0.05); // Example: 5% of cells get rewards
-            int placedRewards = 0;
-
-            while (placedRewards < totalRewards)
-            {
-                int row = random.Next(Size);
-                int col = random.Next(Size);
-
-                if (!Cells[row, col].IsBomb && !Cells[row, col].IsFlagged)
-                {
-                    RewardsRemaining++;
-                    placedRewards++;
-                }
-            }
-        }
-
-        // Used every turn to determine the current game state
-        public GameStatus DetermineGameState()
-        {
-            int unrevealedCells = 0;
-
-            foreach (var cell in Cells)
-            {
-                if (!cell.IsVisited && !cell.IsBomb)
-                {
-                    unrevealedCells++;
+                        // Ensure the neighboring cell is within the board bounds and is not a bomb
+                        if (ni >= 0 && ni < Size && nj >= 0 && nj < Size && !Cells[ni, nj].IsBomb)
+                            Cells[ni, nj].IsVisited = true;
+                    }
                 }
             }
 
-            if (unrevealedCells == 0)
+            // Method to determine the current game state
+            public GameStatus DetermineGameState()
+            {
+                // Iterate through all the cells on the board
+                foreach (var cell in Cells)
+                {
+                    // If there are any unvisited non-bomb cells, the game is still in progress
+                    if (!cell.IsVisited && !cell.IsBomb)
+                        return GameStatus.Playing;
+                }
+
+                // If all non-bomb cells have been visited, the player has won the game
                 return GameStatus.Won;
-
-            foreach (var cell in Cells)
-            {
-                if (cell.IsVisited && cell.IsBomb)
-                    return GameStatus.Lost;
             }
-
-            return GameStatus.InProgress;
         }
     }
-}
