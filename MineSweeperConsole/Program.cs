@@ -2,8 +2,8 @@
 using MineSweeperClasses;
 
 class Program
-{ 
-     static void Main()
+{
+    static void Main()
     {
         Console.WriteLine("Welcome to Minesweeper!");
 
@@ -56,14 +56,7 @@ class Program
                     break;
 
                 case 2: // Visit
-                    if (board.Cells[row, col].IsBomb)
-                    {
-                        death = true; // Player hits a bomb
-                    }
-                    else
-                    {
-                        board.Cells[row, col].IsVisited = true;
-                    }
+                    board.RevealCell(row, col);
                     break;
 
                 case 3: // Use Reward
