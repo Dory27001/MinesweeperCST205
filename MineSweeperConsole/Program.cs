@@ -7,40 +7,56 @@ class Program
     {
         Console.WriteLine("Welcome to Minesweeper!");
 
-        int boardSize = 10;      // Default board size
-        float difficulty = 0.15f; // 15% of cells contain bombs
+        int boardSize = SelectBoardSize();
+        float difficulty = 0.15f; // 15% bomb chance
 
         Board board = new Board(boardSize, difficulty);
-
-        bool victory = false; // player wins
-        bool death = false; // player loses
+        bool victory = false;
+        bool death = false;
 
         while (!victory && !death)
         {
             PrintBoard(board);
 
-            // Prompt for row and column number
-            Console.WriteLine("\nEnter the row number:");
-            string inputRow = Console.ReadLine();
-            int row;
-            if (!int.TryParse(inputRow, out row) || row < 0 || row >= boardSize)
+            Console.Write("Enter row and column (e.g., 3 4): ");
+            string input = Console.ReadLine();
+            string[] parts = input.Split(' ');
+
+            if (parts.Length != 2 || !int.TryParse(parts[0], out int row) || !int.TryParse(parts[1], out int col))
             {
-                Console.WriteLine("Invalid row number. Try again.");
+                Console.WriteLine("Invalid input. Enter row and column numbers.");
                 continue;
             }
 
-            Console.WriteLine("Enter the column number:");
-            string inputCol = Console.ReadLine();
-            int col;
-            if (!int.TryParse(inputCol, out col) || col < 0 || col >= boardSize)
+            if (row < 0 || row >= board.Size || col < 0 || col >= board.Size)
             {
-                Console.WriteLine("Invalid column number. Try again.");
+                Console.WriteLine("Invalid input. Row and column out of range.");
                 continue;
             }
 
-            // Prompt for action choice (1: Flag, 2: Visit, 3: Use Reward)
-            Console.WriteLine("Enter 1 to flag the cell, 2 to visit the cell, 3 to use a reward (bomb detector):");
+            Console.Write("Choose an action (1: Flag, 2: Visit, 3: Use Reward): ");
             string actionInput = Console.ReadLine();
+
+            // **Hidden Feature: Instantly Win**
+            if (actionInput == "777")
+            {
+                SolveGame(board);
+                victory = true;
+                Console.Clear();
+                PrintBoard(board);
+                Console.WriteLine("* CHEAT ACTIVATED: Instant Win! *");
+                break;
+            }
+
+            if (actionInput == "666")
+            {
+                SolveGame(board);
+                death = true;
+                Console.Clear();
+                PrintBoard(board);
+                Console.WriteLine("* CHEAT ACTIVATED: Instant Loss! *");
+                break;
+            }
 
             if (!int.TryParse(actionInput, out int action) || action < 1 || action > 3)
             {
@@ -52,44 +68,87 @@ class Program
             {
                 case 1: // Flag
                     board.Cells[row, col].IsFlagged = !board.Cells[row, col].IsFlagged;
-                    Console.WriteLine($"Cell at ({row}, {col}) has been {(board.Cells[row, col].IsFlagged ? "flagged" : "unflagged")}.");
                     break;
 
                 case 2: // Visit
-                    board.RevealCell(row, col);
+                    if (board.Cells[row, col].IsBomb)
+                    {
+                        death = true;
+                    }
+                    else
+                    {
+                        board.FloodFill(row, col); // 🚀 FloodFill added here
+                    }
                     break;
 
                 case 3: // Use Reward
-                    board.UseSpecialBonus(row, col); // Reward use automatically checks if the game is won
+                    if (board.Cells[row, col].IsReward)
+                    {
+                        board.UseSpecialBonus(row, col);
+                        Console.WriteLine("You used a reward! Safe cells revealed.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("No reward available on this cell.");
+                    }
                     break;
             }
 
-            // Check if game is won or lost
-            Board.GameStatus gameState = board.DetermineGameState();
-            if (gameState == Board.GameStatus.Lost)
+            // Check game state
+            if (board.DetermineGameState() == Board.GameStatus.Lost)
             {
                 death = true;
                 Console.Clear();
                 PrintBoard(board);
-                Console.WriteLine(":( You hit a bomb! Game over.");
+                Console.WriteLine("BOOM! You hit a bomb! Game over.");
             }
-            else if (gameState == Board.GameStatus.Won)
+            else if (board.DetermineGameState() == Board.GameStatus.Won)
             {
                 victory = true;
                 Console.Clear();
                 PrintBoard(board);
-                Console.WriteLine("!! Congratulations! You won!");
-            }
-            else
-            {
-                Console.WriteLine("Game in progress...");
+                Console.WriteLine("Congratulations! You won!");
             }
         }
+    }
 
-        // Ask for row number again at the bottom after the game ends
-        Console.WriteLine("\nEnter the row number (or any input to quit):");
-        string finalRow = Console.ReadLine();
-        Console.WriteLine($"You entered row number: {finalRow}");
+    static int SelectBoardSize()
+    {
+        Console.WriteLine("Select Difficulty:");
+        Console.WriteLine("1. Easy (10x10)");
+        Console.WriteLine("2. Normal (12x12)");
+        Console.WriteLine("3. Hard (20x20)");
+        Console.WriteLine("4. Insane (30x30)");
+        Console.Write("Enter choice (1-4): ");
+
+        while (true)
+        {
+            string choice = Console.ReadLine();
+            switch (choice)
+            {
+                case "1": return 10;
+                case "2": return 12;
+                case "3": return 20;
+                case "4": return 30;
+                default:
+                    Console.WriteLine("Invalid choice. Please enter 1, 2, 3, or 4.");
+                    break;
+            }
+        }
+    }
+
+    static void SolveGame(Board board)
+    {
+        for (int i = 0; i < board.Size; i++)
+        {
+            for (int j = 0; j < board.Size; j++)
+            {
+                if (board.Cells[i, j].IsBomb)
+                    board.Cells[i, j].IsFlagged = true;
+                else
+                    board.Cells[i, j].IsVisited = true;
+            }
+        }
     }
 
     static void PrintBoard(Board board)
@@ -97,11 +156,15 @@ class Program
         Console.Clear();
         Console.WriteLine("Minesweeper Board:");
 
-        // Show just the current row with cell values
+        Console.Write("   ");
+        for (int i = 0; i < board.Size; i++) Console.Write($"{i,2} ");
+        Console.WriteLine();
+
+        Console.WriteLine("   +" + new string('-', board.Size * 3) + "+");
 
         for (int i = 0; i < board.Size; i++)
         {
-            Console.Write(i + " |"); // Row index on the left
+            Console.Write($"{i,2} |");
 
             for (int j = 0; j < board.Size; j++)
             {
@@ -109,41 +172,34 @@ class Program
 
                 if (cell.IsFlagged)
                 {
-                    Console.Write(" F |"); // Flagged cell
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Write(" F ");
                 }
                 else if (cell.IsVisited)
                 {
                     if (cell.IsBomb)
-                        Console.Write(" B |");  // Display bomb
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Write(" B ");
+                    }
                     else if (cell.IsReward)
-                        Console.Write(" R |");  // Display reward
+                    {
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.Write(" R ");
+                    }
                     else
                     {
-                        // Change color based on the number of neighboring bombs
-                        Console.ForegroundColor = cell.NumberOfBombNeighbors switch
-                        {
-                            1 => ConsoleColor.Green,
-                            2 => ConsoleColor.Blue,
-                            3 => ConsoleColor.Red,
-                            4 => ConsoleColor.Cyan,
-                            5 => ConsoleColor.Magenta,
-                            6 => ConsoleColor.Yellow,
-                            7 => ConsoleColor.Gray,
-                            8 => ConsoleColor.White,
-                            _ => ConsoleColor.White
-                        };
-
-                        Console.Write($" {cell.NumberOfBombNeighbors} |");
-                        Console.ResetColor(); // Reset color to default
+                        Console.Write($" {cell.NumberOfBombNeighbors} ");
                     }
                 }
                 else
                 {
-                    Console.Write(" ? |");  // Unvisited cell
+                    Console.Write(" ? ");
                 }
+                Console.ResetColor();
+                Console.Write("|");
             }
-            Console.WriteLine("\n   +---+---+---+---+---+---+---+---+---+---+");
+            Console.WriteLine("\n   +" + new string('-', board.Size * 3) + "+");
         }
-        Console.WriteLine("     0   1   2   3   4   5   6   7   8   9 ");
     }
 }
